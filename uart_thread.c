@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include "uart_thread.h"
 
+#include "my_i2c.h"
+
 // This is a "logical" thread that processes messages from the UART
 // It is not a "real" thread because there is only the single main thread
 // of execution on the PIC because we are not using an RTOS.
@@ -12,7 +14,8 @@ int uart_lthread(uart_thread_struct *uptr, int msgtype, int length, unsigned cha
     else if (msgtype == MSGT_UART_DATA) {
         // print the message (this assumes that the message
         // 		was a printable string)
-        msgbuffer[length] = '\0'; // null-terminate the array as a string
+        i2c_master_send(length, msgbuffer);
+        //msgbuffer[length] = '\0'; // null-terminate the array as a string
         // Now we would do something with it
     }
 }

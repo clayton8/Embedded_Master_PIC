@@ -20,6 +20,7 @@
 #include "debug.h"
 
 unsigned char GLOBAL_SENSOR_SEQUENCE_NUMBER = 0;
+unsigned char GLOBAL_MOTOR_SEQUENCE_NUMBER = 0;
 
 //Setup configuration registers
 #ifdef __USE18F45J10
@@ -330,7 +331,7 @@ void main(void) {
     TRISBbits.TRISB1 = 0;
     
     set_uart_bits();
-    i2c_configure_master(0x4F);
+    i2c_configure_master();
     /*
     unsigned char x[4] = {0x40, 0x41, 0x42, 0x43};
     unsigned char y[4] = {0x50, 0x51, 0x52, 0x53};
@@ -376,7 +377,9 @@ void main(void) {
             switch (msgtype) {
                 case MSGT_TIMER0:
                 {
-                    timer0_lthread(&t0thread_data, msgtype, length, msgbuffer);
+                    i2c_master_recv(0x08, 0x01, 0x4F);
+                    i2c_master_recv(0x02, 0x01, 0x5C);
+                    //timer0_lthread(&t0thread_data, msgtype, length, msgbuffer);
                     break;
                 };
                 case MSGT_I2C_DATA:
@@ -448,6 +451,10 @@ void main(void) {
                     uart_lthread(&uthread_data, msgtype, length, msgbuffer);
                     break;
                 };
+                case MSGT_UART_SEND_ARM:
+                {
+                    send_uart_msg(length, msgbuffer);
+                }
                 default:
                 {
                     // Your code should handle this error

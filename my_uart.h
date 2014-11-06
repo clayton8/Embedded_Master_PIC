@@ -3,7 +3,9 @@
 
 #include "messages.h"
 
-#define MAXUARTBUF 4
+// With UART send from the Master Pic, it does not take this number into account.
+// This number is only used with the Master Receive
+#define MAXUARTBUF 10
 #if (MAXUARTBUF > MSGLEN)
 #define MAXUARTBUF MSGLEN
 #endif

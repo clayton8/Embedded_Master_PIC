@@ -22,35 +22,17 @@ void uart_recv_int_handler() {
         uc_ptr->buffer[uc_ptr->buflen] = ReadUSART();
 #endif
 #endif
-        /*
-         * THE FOLLOWING CODE IS HOW WE WOULD HANDLE AN ACK AND ERROR CHECKING
-         * FOR A MOTOR COMMAND TO DETECT DROPPED PACKETS
-        if(uc_ptr->buffer[uc_ptr->buflen] == 0xFE)
-        {
-            if(uc_ptr->buflen != MAXUARTBUF - 1)
-            {
-
-                // Send Error message
-            }
-            else
-            {
-                if(seqNumMotor != uc_ptr->buffer[SEQ_NUM_PLACE] )
-                {
-                    // Send Error Missing sequence
-                }
-                // Send Motor Ack
-            }
-        }
-        else if(uc_ptr->buflen == MAXUARTBUF - 1)
-        {
-            // Send dropped byte error
-        }
-        */
         uc_ptr->buflen++;
+        if(uc_ptr->buffer[uc_ptr->buflen - 1] == 0xFE) // Stop Byte according to API
+        {
+            signed char success = ToMainLow_sendmsg(uc_ptr->buflen, MSGT_UART_DATA, (void *) uc_ptr->buffer);
+            uc_ptr->buflen = 0;
+        }
+        /*
         // check if a message should be sent
         if (uc_ptr->buflen == MAXUARTBUF) {
             // We have gotten a motor command. Respond with a motor response.
-            /*
+            
             unsigned char motor_ack[4];
             int i = 0;
             for(i = 0; i < 3; i++)
@@ -59,10 +41,10 @@ void uart_recv_int_handler() {
             }
             motor_ack[3] = 0xFE; // API stop byte
             send_uart_msg(sizeof(motor_ack), motor_ack);
-            */
+            
             ToMainLow_sendmsg(uc_ptr->buflen, MSGT_UART_DATA, (void *) uc_ptr->buffer);
             uc_ptr->buflen = 0;
-        }
+        }*/
     }
 #ifdef __USE18F26J50
     if (USART1_Status.OVERRUN_ERROR == 1) {

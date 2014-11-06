@@ -14,6 +14,7 @@
 // A function called by the interrupt handler
 // This one does the action I wanted for this program on a timer0 interrupt
 
+int count0 = 0;
 void timer0_int_handler() {
     unsigned int val;
     int length, msgtype;
@@ -24,9 +25,15 @@ void timer0_int_handler() {
 #endif
     // reset the timer
     WriteTimer0(0);
-    DEBUG_FLIP(TIMER0_D);
+    DEBUG_FLIP(TIMER0_D);    
+    
+    count0++;
+    
+   
     // Read sensor value every time the timer goes off
-    i2c_master_recv(0x08, 0x01);
+    //i2c_master_recv(0x08, 0x01, 0x4F);
+    ToMainHigh_sendmsg(0, MSGT_TIMER0, (void *) 0);
+    
 }
 
 // A function called by the interrupt handler

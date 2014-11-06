@@ -44,12 +44,13 @@ void init_i2c(i2c_comm *);
 void i2c_int_handler(void);
 void start_i2c_slave_reply(unsigned char,unsigned char *);
 void i2c_configure_slave(unsigned char);
-void i2c_configure_master(unsigned char);
+void i2c_configure_master();
 unsigned char i2c_master_send(unsigned char,unsigned char *);
-unsigned char i2c_master_recv(unsigned char, unsigned char *);
+unsigned char i2c_master_recv(unsigned char, unsigned char *, unsigned char slave_address);
 // CURTIS CHANGES
 void i2c_master_int_handler();
 char format_uart_sensor_reply(unsigned char*);
+void format_uart_motor_reply(unsigned char*);
 // END CURTIS CHANGES
 
 #endif

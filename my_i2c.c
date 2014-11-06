@@ -8,11 +8,12 @@
 #include "my_uart.h"
 static i2c_comm *ic_ptr;
 extern unsigned char GLOBAL_SENSOR_SEQUENCE_NUMBER;
+extern unsigned char GLOBAL_MOTOR_SEQUENCE_NUMBER;
 
 // Configure for I2C Master mode -- the variable "slave_addr" should be stored in
 //   i2c_comm (as pointed to by ic_ptr) for later use.
 
-void i2c_configure_master(unsigned char slave_addr) {
+void i2c_configure_master() {
     // Your code goes here
     // BEGIN CURTIS CHANGES
 
@@ -33,7 +34,7 @@ void i2c_configure_master(unsigned char slave_addr) {
 
     SSP1ADD = 0x77;
 
-    ic_ptr->slave_addr = slave_addr;
+    //ic_ptr->slave_addr = slave_addr;
     ic_ptr->status = I2C_IDLE;
 }
 
@@ -62,8 +63,16 @@ void i2c_master_int_handler()
             }
             else
             {
-                if(msgtype == MSGT_I2C_READ) // Check if next command is a read
+                if(msgtype == MSGT_I2C_SENSOR_READ || msgtype == MSGT_I2C_MOTOR_READ) // Check if next command is a read
                 {
+                    if(msgtype == MSGT_I2C_SENSOR_READ)
+                    {
+                        ic_ptr->slave_addr = 0x4F;
+                    }
+                    else // Motor Read
+                    {
+                        ic_ptr->slave_addr = 0x5C;
+                    }
                     ic_ptr->buflen = length_of_message;
                     ic_ptr->status = I2C_READ_START_FROM_CHECK_EMPTY;
                     // Send the start bit to initiate read
@@ -83,7 +92,8 @@ void i2c_master_int_handler()
         {
             // Check the queue
             length_of_message = FromMainHigh_recvmsg(MAXI2CBUF,&msgtype,(void *) ic_ptr->outbuffer);
-            
+
+            ic_ptr->slave_addr = 0x5C; // Motor Slave Address
             // There was a message in the message queue
             // Load SSPBUF with slave address
             ic_ptr->outbuflen = length_of_message;
@@ -94,6 +104,8 @@ void i2c_master_int_handler()
         }
         case I2C_STARTED_FROM_CHECK_EMPTY:
         {
+            ic_ptr->slave_addr = 0x5C; // Motor Slave Address
+
             // In this state, the queue has already been read from the IDLE state
             // Must load the SSPBUF with slave address
             SSPBUF = (ic_ptr->slave_addr << 1) | 0x0;
@@ -124,6 +136,14 @@ void i2c_master_int_handler()
         case I2C_READ_START_FROM_MAIN:
         {
             length_of_message = FromMainHigh_recvmsg(MAXI2CBUF,&msgtype,(void *) ic_ptr->outbuffer);
+            if(msgtype == MSGT_I2C_SENSOR_READ)
+            {
+                ic_ptr->slave_addr = 0x4F;
+            }
+            else // Motor Read
+            {
+                ic_ptr->slave_addr = 0x5C;
+            }
             ic_ptr->buflen = length_of_message;
             SSPBUF = (ic_ptr->slave_addr << 1) | 0x1;
             ic_ptr->status = I2C_READ_CHECK_ACK;
@@ -163,11 +183,20 @@ void i2c_master_int_handler()
                 SSPCON2bits.ACKEN = 1;
                 SSPCON2bits.ACKDT = 1;
                 cur_i2c_read_ind = 0;
-                unsigned char relay_sensor_data[12];
-                char check_empty = format_uart_sensor_reply(relay_sensor_data);
-                if(check_empty != 8)
+                if(ic_ptr->slave_addr == 0x4F) // We did a sensor read
                 {
-                    send_uart_msg(sizeof(relay_sensor_data), relay_sensor_data);
+                    unsigned char relay_sensor_data[12];
+                    char check_empty = format_uart_sensor_reply(relay_sensor_data);
+                    if(check_empty != 8)
+                    {
+                        ToMainLow_sendmsg(sizeof(relay_sensor_data), MSGT_UART_SEND_ARM, relay_sensor_data);
+                    }
+                }
+                else // We did a motor read
+                {
+                    unsigned char relay_motor_data[6];
+                    format_uart_motor_reply(relay_motor_data);
+                    ToMainLow_sendmsg(sizeof(relay_motor_data), MSGT_UART_SEND_ARM, relay_motor_data);
                 }
                 ic_ptr->status = I2C_DONE_READING;
             }
@@ -237,20 +266,37 @@ unsigned char i2c_master_send(unsigned char length, unsigned char *msg) {
 //   is determined by the parameter passed to i2c_master_recv()].
 // The interrupt handler will be responsible for copying the message received into
 
-unsigned char i2c_master_recv(unsigned char length, unsigned char * msg) {
+unsigned char i2c_master_recv(unsigned char length, unsigned char * msg/*Not used in read*/, unsigned char slave_address) {
     // Your code goes here
 
     // BEGIN CURTIS CHANGES
     if(ic_ptr->status == I2C_IDLE)
     {
-        signed char is_queue_full = FromMainHigh_sendmsg(length, MSGT_I2C_READ, (void *) msg);
-        ic_ptr->status = I2C_READ_START_FROM_MAIN;
-        // Send the start bit
-        SSP1CON2bits.SEN = 1;
+        if(slave_address == 0x4F) // Sensor Read
+        {
+            signed char is_queue_full = FromMainHigh_sendmsg(length, MSGT_I2C_SENSOR_READ, (void *) msg);
+            ic_ptr->status = I2C_READ_START_FROM_MAIN;
+            // Send the start bit
+            SSP1CON2bits.SEN = 1;
+        }
+        else // Motor Read
+        {
+            signed char is_queue_full = FromMainHigh_sendmsg(length, MSGT_I2C_MOTOR_READ, (void *) msg);
+            ic_ptr->status = I2C_READ_START_FROM_MAIN;
+            // Send the start bit
+            SSP1CON2bits.SEN = 1;
+        }
     }
     else
     {
-        signed char is_queue_full = FromMainHigh_sendmsg(length, MSGT_I2C_READ, (void *) msg);
+        if(slave_address == 0x4F) // Sensor Read
+        {
+            signed char is_queue_full = FromMainHigh_sendmsg(length, MSGT_I2C_SENSOR_READ, (void *) msg);
+        }
+        else // Motor Read
+        {
+            signed char is_queue_full = FromMainHigh_sendmsg(length, MSGT_I2C_MOTOR_READ, (void *) msg);
+        }
     }
     // END CURTIS CHANGES
     return(0);
@@ -275,6 +321,21 @@ char format_uart_sensor_reply(unsigned char* final_buffer)
     }
     final_buffer[len - 1] = 0xFE; // API End byte
     return count_empty;
+}
+
+void format_uart_motor_reply(unsigned char* mot_buffer)
+{
+    mot_buffer[0] = 0xFF;
+    mot_buffer[1] = GLOBAL_MOTOR_SEQUENCE_NUMBER;
+    GLOBAL_MOTOR_SEQUENCE_NUMBER = (GLOBAL_MOTOR_SEQUENCE_NUMBER++) % 0xEF;
+    mot_buffer[2] = 0xFB;
+    int ind_m = 3;
+    int len_m = 6;
+    for(ind_m = 3; ind_m < (len_m - 1); ind_m++)
+    {
+        mot_buffer[ind_m] = ic_ptr->buffer[ind_m - 3];
+    }
+    mot_buffer[len_m - 1] = 0xFE; // API End Byte
 }
 
 void start_i2c_slave_reply(unsigned char length, unsigned char *msg) {
