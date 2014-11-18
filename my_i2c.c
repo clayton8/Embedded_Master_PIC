@@ -6,6 +6,7 @@
 #endif
 #include "my_i2c.h"
 #include "my_uart.h"
+#include "debug.h"
 static i2c_comm *ic_ptr;
 extern unsigned char GLOBAL_SENSOR_SEQUENCE_NUMBER;
 extern unsigned char GLOBAL_MOTOR_SEQUENCE_NUMBER;
@@ -197,6 +198,7 @@ void i2c_master_int_handler()
                     unsigned char relay_motor_data[6];
                     format_uart_motor_reply(relay_motor_data);
                     ToMainLow_sendmsg(sizeof(relay_motor_data), MSGT_UART_SEND_ARM, relay_motor_data);
+
                 }
                 ic_ptr->status = I2C_DONE_READING;
             }

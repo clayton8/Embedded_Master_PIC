@@ -28,8 +28,6 @@ void timer0_int_handler() {
     DEBUG_FLIP(TIMER0_D);    
     
     count0++;
-    
-   
     // Read sensor value every time the timer goes off
     //i2c_master_recv(0x08, 0x01, 0x4F);
     ToMainHigh_sendmsg(0, MSGT_TIMER0, (void *) 0);
